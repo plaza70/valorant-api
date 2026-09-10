@@ -1,14 +1,17 @@
 from flask import Flask, jsonify, request
 import requests
 import os
+import re
 
 app = Flask(__name__)
 
-API = "https://api.henrikdev.xyz/valorant"
+KYROS = "https://api.kyroskoh.xyz/valorant/v1"
+
 
 @app.route("/")
 def home():
     return "Valorant API funcionando"
+
 
 @app.route("/rango")
 def rango():
@@ -17,43 +20,42 @@ def rango():
     region = request.args.get("region", "eu")
 
     if not name or not tag:
-        return "Falta el Riot ID", 400
+        return "Faltan name y tag", 400
 
-    # Rango actual
-    mmr_url = f"{API}/v3/mmr/{region}/{name}/{tag}"
-    mmr_response = requests.get(mmr_url)
+    # Obtener rango y RR
+    rank_url = f"{KYROS}/mmr/{region}/{name}/{tag}?show=combo&display=0"
+    rank_response = requests.get(rank_url, timeout=15)
 
-    if mmr_response.status_code != 200:
+    if rank_response.status_code != 200:
         return "No se ha encontrado la cuenta", 404
 
-    mmr = mmr_response.json()["data"]
+    rango_texto = rank_response.text.strip()
 
-    rango_actual = mmr["currenttierpatched"]
-    rr_actual = mmr["ranking_in_tier"]
+    # Obtener última partida y cambio de RR
+    change_url = f"{KYROS}/mmrchange/{region}/{name}/{tag}?display=0"
+    change_response = requests.get(change_url, timeout=15)
 
-    # Historial MMR
-    history_url = f"{API}/v3/mmr-history/{region}/{name}/{tag}"
-    history_response = requests.get(history_url)
+    if change_response.status_code != 200:
+        return rango_texto
 
-    if history_response.status_code != 200:
-        return f"{rango_actual} • {rr_actual} RR • No se pudo consultar la última partida"
+    cambio_texto = change_response.text.strip()
 
-    history = history_response.json()["data"]
+    # Detectar cambio de RR
+    match = re.search(r'([+-]\d+)\s*RR', cambio_texto, re.IGNORECASE)
 
-    if not history:
-        return f"{rango_actual} • {rr_actual} RR"
+    if match:
+        cambio = int(match.group(1))
 
-    ultima = history[0]
-    cambio = ultima.get("last_change", 0)
-
-    if cambio > 0:
-        resultado = f"Victoria (+{cambio} RR)"
-    elif cambio < 0:
-        resultado = f"Derrota ({cambio} RR)"
+        if cambio > 0:
+            resultado = f"Victoria (+{cambio} RR)"
+        elif cambio < 0:
+            resultado = f"Derrota ({cambio} RR)"
+        else:
+            resultado = "Sin cambio de RR"
     else:
-        resultado = "Sin cambio de RR"
+        resultado = "Última partida no disponible"
 
-    return f"{rango_actual} • {rr_actual} RR • Última: {resultado}"
+    return f"{rango_texto} • Última: {resultado}"
 
 
 if __name__ == "__main__":
