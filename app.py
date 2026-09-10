@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request
 import requests
 import os
 import re
@@ -22,18 +22,26 @@ def rango():
     if not name or not tag:
         return "Faltan name y tag", 400
 
-    # Obtener rango y RR
-    rank_response = requests.get(rank_url, timeout=30)
-    rank_response = requests.get(rank_url, timeout=15)
+    # Rango y RR actual
+    rank_url = f"{KYROS}/mmr/{region}/{name}/{tag}?show=combo&display=0"
+
+    try:
+        rank_response = requests.get(rank_url, timeout=30)
+    except requests.RequestException:
+        return "No se pudo conectar con la API de Valorant", 503
 
     if rank_response.status_code != 200:
         return "No se ha encontrado la cuenta", 404
 
     rango_texto = rank_response.text.strip()
 
-    # Obtener última partida y cambio de RR
+    # Último cambio de RR
     change_url = f"{KYROS}/mmrchange/{region}/{name}/{tag}?display=0"
-    change_response = requests.get(change_url, timeout=30)
+
+    try:
+        change_response = requests.get(change_url, timeout=30)
+    except requests.RequestException:
+        return rango_texto
 
     if change_response.status_code != 200:
         return rango_texto
