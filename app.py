@@ -23,7 +23,7 @@ def rango():
         return "Faltan name y tag", 400
 
     # Obtener rango y RR
-    rank_url = f"{KYROS}/mmr/{region}/{name}/{tag}?show=combo&display=0"
+    rank_response = requests.get(rank_url, timeout=30)
     rank_response = requests.get(rank_url, timeout=15)
 
     if rank_response.status_code != 200:
@@ -33,7 +33,7 @@ def rango():
 
     # Obtener última partida y cambio de RR
     change_url = f"{KYROS}/mmrchange/{region}/{name}/{tag}?display=0"
-    change_response = requests.get(change_url, timeout=15)
+    change_response = requests.get(change_url, timeout=30)
 
     if change_response.status_code != 200:
         return rango_texto
